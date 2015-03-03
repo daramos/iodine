@@ -215,7 +215,7 @@ client_set_downenc(char *encoding)
 	else if (!strcasecmp(encoding, "base64u"))
 		downenc = 'U';
 	else if (!strcasecmp(encoding, "base128"))
-		downenc = 'V';
+		downenc = PACKET_TYPE_VER_2;
 	else if (!strcasecmp(encoding, "raw"))
 		downenc = 'R';
 }
@@ -533,8 +533,8 @@ dns_namedec(char *outdata, int outdatalen, char *buf, int buflen)
 
 		return b64u->decode(outdata, &outdatalenu, buf + 1, buflen - 1);
 
-	case 'v': /* plain base128 from TXT */
-	case 'V':
+	case PACKET_TYPE_VER_1: /* plain base128 from TXT */
+	case PACKET_TYPE_VER_2:
 		if (buflen < 2)
 			return 0;
 
@@ -716,7 +716,7 @@ handshake_waitdns(int dns_fd, char *buf, int buflen, char c1, char c2, int timeo
 		 */
 		if (rv < 0 && q.rcode == NOERROR &&
 		    (q.name[0] == 'Y' || q.name[0] == 'y' ||
-		     q.name[0] == 'V' || q.name[0] == 'v')) {
+		     q.name[0] == PACKET_TYPE_VER_2 || q.name[0] == PACKET_TYPE_VER_1)) {
 			fprintf(stderr, "Got empty reply. This nameserver may not be resolving recursively, use another.\n");
 			fprintf(stderr, "Try \"iodine [options] ns.%s %s\" first, it might just work.\n",
 				topdomain, topdomain);
@@ -1268,7 +1268,7 @@ send_version(int fd, uint32_t version)
 
 	rand_seed++;
 
-	send_packet(fd, 'v', data, sizeof(data));
+	send_packet(fd, PACKET_TYPE_VER_1, data, sizeof(data));
 }
 
 static void
@@ -1397,7 +1397,7 @@ handshake_version(int dns_fd, int *seed)
 
 		send_version(dns_fd, PROTOCOL_VERSION);
 
-		read = handshake_waitdns(dns_fd, in, sizeof(in), 'v', 'V', i+1);
+		read = handshake_waitdns(dns_fd, in, sizeof(in), PACKET_TYPE_VER_1, PACKET_TYPE_VER_2, i+1);
 
 		if (read >= 9) {
 			payload =  (((in[4] & 0xff) << 24) |
@@ -1808,7 +1808,7 @@ handshake_downenc_autodetect(int dns_fd)
 
 	/* Try Base128 only if 64 gives us some perspective */
 	if (running && (base64ok || base64uok)) {
-		if (handshake_downenctest(dns_fd, 'V'))
+		if (handshake_downenctest(dns_fd, PACKET_TYPE_VER_2))
 			base128ok = 1;
 	}
 
@@ -1822,7 +1822,7 @@ handshake_downenc_autodetect(int dns_fd)
 		return ' ';
 
 	if (base128ok)
-		return 'V';
+		return PACKET_TYPE_VER_2;
 	if (base64ok)
 		return 'S';
 	if (base64uok)
@@ -2077,7 +2077,7 @@ handshake_switch_downenc(int dns_fd)
 		dname = "Base64";
 	else if (downenc == 'U')
 		dname = "Base64u";
-	else if (downenc == 'V')
+	else if (downenc == PACKET_TYPE_VER_2)
 		dname = "Base128";
 	else if (downenc == 'R')
 		dname = "Raw";

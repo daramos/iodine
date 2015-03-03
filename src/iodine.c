@@ -196,7 +196,7 @@ main(int argc, char **argv)
 		case '6':
 			nameserv_family = AF_INET6;
 			break;
-		case 'v':
+		case PACKET_TYPE_VER_1:
 			version();
 			/* NOTREACHED */
 			break;

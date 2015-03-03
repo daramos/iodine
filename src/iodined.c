@@ -752,7 +752,7 @@ handle_null_request(int tun_fd, int dns_fd, struct query *q, int domain_len)
 
 	memcpy(in, q->name, MIN(domain_len, sizeof(in)));
 
-	if(in[0] == 'V' || in[0] == 'v') {
+	if(in[0] == PACKET_TYPE_VER_2 || in[0] == PACKET_TYPE_VER_1) {
 		int version = 0;
 
 		read = unpack_data(unpacked, sizeof(unpacked), &(in[1]), domain_len - 1, b32);
@@ -982,9 +982,9 @@ handle_null_request(int tun_fd, int dns_fd, struct query *q, int domain_len)
 			users[userid].downenc = 'U';
 			write_dns(dns_fd, q, "Base64u", 7, users[userid].downenc);
 			break;
-		case 'V':
-		case 'v':
-			users[userid].downenc = 'V';
+		case PACKET_TYPE_VER_2:
+		case PACKET_TYPE_VER_1:
+			users[userid].downenc = PACKET_TYPE_VER_2;
 			write_dns(dns_fd, q, "Base128", 7, users[userid].downenc);
 			break;
 		case 'R':
@@ -1057,12 +1057,12 @@ handle_null_request(int tun_fd, int dns_fd, struct query *q, int domain_len)
 				return;
 			}
 			break;
-		case 'V':
-		case 'v':
+		case PACKET_TYPE_VER_2:
+		case PACKET_TYPE_VER_1:
 			if (q->type == T_TXT ||
 			    q->type == T_SRV || q->type == T_MX ||
 			    q->type == T_CNAME || q->type == T_A) {
-				write_dns(dns_fd, q, datap, datalen, 'V');
+				write_dns(dns_fd, q, datap, datalen, PACKET_TYPE_VER_2);
 				return;
 			}
 			break;
@@ -2077,7 +2077,7 @@ write_dns_nameenc(char *buf, size_t buflen, char *data, int datalen, char downen
 		b64u->encode(buf+1, &space, data, datalen);
 		if (!b64u->places_dots())
 			inline_dotify(buf, buflen);
-	} else if (downenc == 'V') {
+	} else if (downenc == PACKET_TYPE_VER_2) {
 		buf[0] = 'k';
 		if (!b128->places_dots())
 			space -= (space / 57);	/* space for dots */
@@ -2166,8 +2166,8 @@ write_dns(int fd, struct query *q, char *data, int datalen, char downenc)
 			txtbuf[0] = 'u';	/* Base64 with Underscore */
 			len = b64u->encode(txtbuf+1, &space, data, datalen);
 		}
-		else if (downenc == 'V') {
-			txtbuf[0] = 'v';	/* Base128 */
+		else if (downenc == PACKET_TYPE_VER_2) {
+			txtbuf[0] = PACKET_TYPE_VER_1;	/* Base128 */
 			len = b128->encode(txtbuf+1, &space, data, datalen);
 		}
 		else if (downenc == 'R') {
